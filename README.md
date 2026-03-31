@@ -36,19 +36,31 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 ```
 
-### 3. Запусти контейнери
+### 3. Перший запуск (одна команда)
 
 ```bash
-docker compose up -d --build
+make bootstrap
 ```
 
-### 4. Виконай міграції
+Виконує: build образу, запуск контейнерів, міграції, виставлення прав на директорії.
 
-```bash
-docker compose exec app php yii migrate --interactive=0
-```
+### 4. Сервіс доступний на http://localhost:8002
 
-### 5. Сервіс доступний на http://localhost:8002
+---
+
+## Make команди
+
+| Команда | Опис |
+|---------|------|
+| `make bootstrap` | Перший запуск: build + міграції + права на директорії |
+| `make build` | Rebuild Docker образу і запуск контейнерів |
+| `make up` | Запустити контейнери |
+| `make down` | Зупинити контейнери |
+| `make restart` | Перезапустити контейнери |
+| `make migrate` | Виконати міграції (`php yii migrate`) |
+| `make shell` | Відкрити bash в контейнері app |
+| `make logs` | Стрімити логи всіх контейнерів |
+| `make env` | Створити `www/.env` з `.env.example` (якщо не існує) |
 
 ---
 
