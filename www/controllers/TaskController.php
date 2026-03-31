@@ -39,10 +39,10 @@ class TaskController extends Controller
         $userId = Yii::$app->user->identity->getId();
         $body   = Yii::$app->request->getBodyParams();
 
-        $task          = new Task();
-        $task->user_id = $userId;
+        $task = new Task();
         $task->setScenario('create');
         $task->load($body, '');
+        $task->user_id = $userId;
 
         if (!$task->save()) {
             Yii::$app->response->statusCode = 422;
@@ -73,6 +73,7 @@ class TaskController extends Controller
 
         $task->setScenario('update');
         $task->load($body, '');
+        $task->user_id = $task->getOldAttribute('user_id');
 
         if (!$task->save()) {
             Yii::$app->response->statusCode = 422;
