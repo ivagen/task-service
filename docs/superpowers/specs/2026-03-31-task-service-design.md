@@ -187,7 +187,7 @@ Error handler overridden in `web.php` to always return this JSON format.
 Same pattern as `auth_service`:
 - `Dockerfile`: php:8.5-fpm, installs pdo_mysql, mbstring, redis extension
 - `docker-compose.yml`: services app, nginx, mysql, redis
-- Nginx port: 8001 (to avoid conflict with auth_service on 8000)
+- Nginx port: 8002 (to avoid conflict with auth_service on 8000)
 - `docker/nginx/default.conf`: root `/var/www/web`, fastcgi to app:9000
 
 ---
