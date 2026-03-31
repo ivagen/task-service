@@ -32,5 +32,6 @@ bootstrap:
 	docker compose exec app composer install --no-interaction --prefer-dist
 	sleep 5
 	docker compose exec app php yii migrate --interactive=0
+	mkdir -p www/runtime www/web/assets
 	sudo chmod -R 775 www/runtime www/web/assets
 	sudo chown -R www-data:www-data www/runtime www/web/assets
