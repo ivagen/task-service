@@ -6,9 +6,9 @@ class MockRequest extends \yii\web\Request
 {
     private array $_bodyParams = [];
 
-    public function setBodyParams(array $params): void
+    public function setBodyParams($values): void
     {
-        $this->_bodyParams = $params;
+        $this->_bodyParams = (array)$values;
     }
 
     public function getBodyParams(): array
