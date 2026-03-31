@@ -4,6 +4,7 @@ $finder = PhpCsFixer\Finder::create()
     ->in([
         __DIR__ . '/behaviors',
         __DIR__ . '/components',
+        __DIR__ . '/config',
         __DIR__ . '/controllers',
         __DIR__ . '/migrations',
         __DIR__ . '/models',
