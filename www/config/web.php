@@ -49,8 +49,7 @@ return [
             ],
         ],
         'errorHandler' => [
-            'class' => 'yii\web\ErrorHandler',
-            'errorAction' => null,
+            'class' => 'app\components\JsonErrorHandler',
         ],
         'urlManager' => [
             'enablePrettyUrl'     => true,
