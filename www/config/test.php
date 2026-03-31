@@ -40,7 +40,8 @@ return [
             'targets' => [],
         ],
         'errorHandler' => [
-            'class' => 'app\components\JsonErrorHandler',
+            'class'                 => 'app\components\JsonErrorHandler',
+            'discardExistingOutput' => false,
         ],
         'urlManager' => [
             'enablePrettyUrl'     => true,

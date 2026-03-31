@@ -15,4 +15,14 @@ class MockRequest extends \yii\web\Request
     {
         return $this->_bodyParams;
     }
+
+    public function getBaseUrl(): string
+    {
+        return '';
+    }
+
+    public function getScriptUrl(): string
+    {
+        return '/index.php';
+    }
 }

@@ -21,6 +21,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     protected function tearDown(): void
     {
         if (Yii::$app !== null) {
+            Yii::$app->errorHandler->unregister();
             Yii::$app->db->close();
             Yii::$app = null;
         }
@@ -82,11 +83,27 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 
     private function doRequest(string $method, string $url, array $body, bool $auth): array
     {
-        $_SERVER['REQUEST_METHOD'] = strtoupper($method);
-        $_SERVER['REQUEST_URI']    = $url;
+        // Parse URL so query string goes into $_GET and path into REQUEST_URI
+        $parts = parse_url($url);
+        $path  = $parts['path'] ?? '/';
+        $query = isset($parts['query']) ? '?' . $parts['query'] : '';
+
+        $_GET                          = [];
+        $_SERVER['REQUEST_METHOD']     = strtoupper($method);
+        $_SERVER['REQUEST_URI']        = $path . $query;
+        $_SERVER['SCRIPT_NAME']        = '/index.php';
+        $_SERVER['SCRIPT_FILENAME']    = '/var/www/web/index.php';
+        $_SERVER['PHP_SELF']           = '/index.php';
+        $_SERVER['SERVER_NAME']        = 'localhost';
+        $_SERVER['SERVER_PORT']        = '80';
+        $_SERVER['HTTP_HOST']          = 'localhost';
         $_SERVER['HTTP_AUTHORIZATION'] = $auth ? 'Bearer ' . self::TOKEN : '';
 
-        // Re-register request so it picks up new $_SERVER state
+        if (!empty($parts['query'])) {
+            parse_str($parts['query'], $_GET);
+        }
+
+        // Re-register request so it picks up fresh $_SERVER
         Yii::$app->set('request', [
             'class'                  => MockRequest::class,
             'enableCookieValidation' => false,
@@ -108,12 +125,26 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         // Reset user identity between requests
         Yii::$app->user->setIdentity(null);
 
-        // Re-seed fake token (ArrayCache is shared, so this is cheap)
+        // Re-seed fake token
         $this->seedFakeToken();
 
         ob_start();
-        $response = Yii::$app->handleRequest($request);
-        ob_end_clean();
+        try {
+            $response = Yii::$app->handleRequest($request);
+            ob_end_clean();
+        } catch (\yii\web\HttpException $e) {
+            ob_end_clean();
+            return [
+                'status' => $e->statusCode,
+                'body'   => [
+                    'success' => false,
+                    'error'   => ['code' => $e->statusCode, 'message' => $e->getMessage()],
+                ],
+            ];
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            throw $e;
+        }
 
         return [
             'status' => $response->statusCode,
