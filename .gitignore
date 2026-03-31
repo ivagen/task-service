@@ -3,3 +3,4 @@ www/vendor/
 www/runtime/
 www/.env
 www/.php-cs-fixer.cache
+www/.phpunit.result.cache
