@@ -27,6 +27,9 @@ env:
 bootstrap:
 	@if [ ! -f www/.env ]; then cp www/.env.example www/.env; echo ".env created from .env.example"; fi
 	docker compose up -d --build
+	@if [ ! -d www/vendor ]; then mkdir www/vendor; fi
+	sudo chmod -R 775 www/vendor
+	docker compose exec app composer install --no-interaction --prefer-dist
 	sleep 5
 	docker compose exec app php yii migrate --interactive=0
 	sudo chmod -R 775 www/runtime www/web/assets
