@@ -1,4 +1,4 @@
-.PHONY: up down restart build logs shell migrate env bootstrap
+.PHONY: up down restart build logs shell migrate test env bootstrap
 
 up:
 	docker compose up -d
@@ -20,6 +20,9 @@ shell:
 
 migrate:
 	docker compose exec app php yii migrate --interactive=0
+
+test:
+	docker compose exec app vendor/bin/phpunit
 
 env:
 	@if [ ! -f www/.env ]; then cp www/.env.example www/.env; echo ".env created from .env.example"; else echo ".env already exists"; fi
