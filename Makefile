@@ -1,4 +1,4 @@
-.PHONY: up down restart build logs shell migrate test env bootstrap
+.PHONY: up down restart build logs shell migrate test composer env bootstrap
 
 up:
 	docker compose up -d
@@ -23,6 +23,9 @@ migrate:
 
 test:
 	docker compose exec app vendor/bin/phpunit
+
+composer:
+	docker compose exec app composer install --no-interaction --prefer-dist
 
 env:
 	@if [ ! -f www/.env ]; then cp www/.env.example www/.env; echo ".env created from .env.example"; else echo ".env already exists"; fi
