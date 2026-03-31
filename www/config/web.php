@@ -50,7 +50,7 @@ return [
         ],
         'errorHandler' => [
             'class' => 'yii\web\ErrorHandler',
-            'errorAction' => 'site/error',
+            'errorAction' => null,
         ],
         'urlManager' => [
             'enablePrettyUrl'     => true,
