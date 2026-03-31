@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\components;
 
@@ -22,8 +22,8 @@ class JsonErrorHandler extends ErrorHandler
         $response->statusCode = $statusCode;
         $response->data = [
             'success' => false,
-            'error'   => [
-                'code'    => $statusCode,
+            'error' => [
+                'code' => $statusCode,
                 'message' => $exception->getMessage() ?: $this->getDefaultMessage($statusCode),
             ],
         ];
@@ -33,7 +33,7 @@ class JsonErrorHandler extends ErrorHandler
 
     private function getDefaultMessage(int $code): string
     {
-        return match($code) {
+        return match ($code) {
             400 => 'Bad Request',
             401 => 'Unauthorized',
             403 => 'Forbidden',

@@ -1,10 +1,10 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\components;
 
+use Yii;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use Yii;
 
 class PassportAuth
 {
@@ -21,14 +21,14 @@ class PassportAuth
 
         try {
             $client = new Client([
-                'timeout'         => 3,
+                'timeout' => 3,
                 'connect_timeout' => 2,
             ]);
 
             $response = $client->get($url, [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
-                    'Accept'        => 'application/json',
+                    'Accept' => 'application/json',
                 ],
             ]);
 
@@ -47,6 +47,7 @@ class PassportAuth
             return $data;
         } catch (GuzzleException $e) {
             Yii::warning('PassportAuth Guzzle error: ' . $e->getMessage(), 'passport');
+
             return false;
         }
     }

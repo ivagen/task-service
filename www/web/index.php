@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+
 defined('YII_DEBUG') or define('YII_DEBUG', (bool)($_ENV['YII_DEBUG'] ?? false));
 defined('YII_ENV') or define('YII_ENV', $_ENV['YII_ENV'] ?? 'prod');
 

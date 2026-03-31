@@ -1,4 +1,4 @@
-.PHONY: up down restart build logs shell migrate test composer env bootstrap
+.PHONY: up down restart build logs shell migrate test composer cs-fix cs-check env bootstrap
 
 up:
 	docker compose up -d
@@ -26,6 +26,12 @@ test:
 
 composer:
 	docker compose exec app composer update --no-interaction --prefer-dist
+
+cs-fix:
+	docker compose exec app composer cs:fix
+
+cs-check:
+	docker compose exec app composer cs:check
 
 env:
 	@if [ ! -f www/.env ]; then cp www/.env.example www/.env; echo ".env created from .env.example"; else echo ".env already exists"; fi

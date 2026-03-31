@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\models;
 
@@ -6,9 +6,9 @@ use yii\db\ActiveQuery;
 
 class TaskSearch
 {
-    public const DEFAULT_PAGE     = 1;
+    public const DEFAULT_PAGE = 1;
     public const DEFAULT_PER_PAGE = 20;
-    public const MAX_PER_PAGE     = 100;
+    public const MAX_PER_PAGE = 100;
 
     public function search(int $userId, array $params): array
     {
@@ -16,19 +16,19 @@ class TaskSearch
 
         $this->applyFilters($query, $params);
 
-        $total   = (int)$query->count();
-        $page    = max(1, (int)($params['page'] ?? self::DEFAULT_PAGE));
+        $total = (int)$query->count();
+        $page = max(1, (int)($params['page'] ?? self::DEFAULT_PAGE));
         $perPage = min(self::MAX_PER_PAGE, max(1, (int)($params['per_page'] ?? self::DEFAULT_PER_PAGE)));
-        $offset  = ($page - 1) * $perPage;
+        $offset = ($page - 1) * $perPage;
 
         $tasks = $query->limit($perPage)->offset($offset)->all();
 
         return [
-            'data' => array_map(fn(Task $t) => $t->toArray(), $tasks),
+            'data' => array_map(fn (Task $t) => $t->toArray(), $tasks),
             'meta' => [
-                'total'       => $total,
-                'page'        => $page,
-                'per_page'    => $perPage,
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
                 'total_pages' => (int)ceil($total / $perPage),
             ],
         ];

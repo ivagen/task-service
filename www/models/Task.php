@@ -1,9 +1,9 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\models;
 
-use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
+use yii\behaviors\TimestampBehavior;
 
 class Task extends ActiveRecord
 {
@@ -54,15 +54,15 @@ class Task extends ActiveRecord
     public function toArray(array $fields = [], array $expand = [], $recursive = true): array
     {
         return [
-            'id'          => (int)$this->id,
-            'user_id'     => (int)$this->user_id,
-            'title'       => $this->title,
+            'id' => (int)$this->id,
+            'user_id' => (int)$this->user_id,
+            'title' => $this->title,
             'description' => $this->description,
-            'status'      => $this->status,
-            'priority'    => (int)$this->priority,
-            'due_date'    => $this->due_date,
-            'created_at'  => (int)$this->created_at,
-            'updated_at'  => (int)$this->updated_at,
+            'status' => $this->status,
+            'priority' => (int)$this->priority,
+            'due_date' => $this->due_date,
+            'created_at' => (int)$this->created_at,
+            'updated_at' => (int)$this->updated_at,
         ];
     }
 }

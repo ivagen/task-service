@@ -1,13 +1,13 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\behaviors;
 
-use app\components\PassportAuth;
-use app\components\User;
 use Yii;
-use yii\base\ActionEvent;
 use yii\base\Behavior;
 use yii\web\Controller;
+use app\components\User;
+use yii\base\ActionEvent;
+use app\components\PassportAuth;
 
 class PassportAuthBehavior extends Behavior
 {
@@ -21,11 +21,12 @@ class PassportAuthBehavior extends Behavior
     public function beforeAction(ActionEvent $event): void
     {
         $request = Yii::$app->request;
-        $token   = $this->extractToken($request->getHeaders()->get('Authorization', ''));
+        $token = $this->extractToken($request->getHeaders()->get('Authorization', ''));
 
         if ($token === null) {
             $this->respondUnauthorized('Missing or invalid Authorization header');
             $event->isValid = false;
+
             return;
         }
 
@@ -34,6 +35,7 @@ class PassportAuthBehavior extends Behavior
         if ($userData === false) {
             $this->respondUnauthorized('Invalid or expired token');
             $event->isValid = false;
+
             return;
         }
 
@@ -43,6 +45,7 @@ class PassportAuthBehavior extends Behavior
         if (!$this->checkRateLimit($identity->id)) {
             $this->respondTooManyRequests();
             $event->isValid = false;
+
             return;
         }
     }
@@ -51,18 +54,21 @@ class PassportAuthBehavior extends Behavior
     {
         if (str_starts_with($header, 'Bearer ')) {
             $token = trim(substr($header, 7));
+
             return $token !== '' ? $token : null;
         }
+
         return null;
     }
 
     private function checkRateLimit(int $userId): bool
     {
         $cacheKey = 'rate_limit_' . $userId;
-        $count    = (int)Yii::$app->cache->get($cacheKey);
+        $count = (int)Yii::$app->cache->get($cacheKey);
 
         if ($count === 0) {
             Yii::$app->cache->set($cacheKey, 1, 60);
+
             return true;
         }
 
@@ -71,6 +77,7 @@ class PassportAuthBehavior extends Behavior
         }
 
         Yii::$app->cache->set($cacheKey, $count + 1, 60);
+
         return true;
     }
 
@@ -80,7 +87,7 @@ class PassportAuthBehavior extends Behavior
         $response->statusCode = 401;
         $response->data = [
             'success' => false,
-            'error'   => ['code' => 401, 'message' => $message],
+            'error' => ['code' => 401, 'message' => $message],
         ];
         $response->send();
     }
@@ -91,7 +98,7 @@ class PassportAuthBehavior extends Behavior
         $response->statusCode = 429;
         $response->data = [
             'success' => false,
-            'error'   => ['code' => 429, 'message' => 'Too Many Requests'],
+            'error' => ['code' => 429, 'message' => 'Too Many Requests'],
         ];
         $response->send();
     }

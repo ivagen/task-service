@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace tests\Feature;
 
@@ -156,11 +156,11 @@ class TaskTest extends TestCase
     public function test_create_task_with_valid_data(): void
     {
         $res = $this->post('/api/v1/tasks', [
-            'title'       => 'Buy groceries',
+            'title' => 'Buy groceries',
             'description' => 'Milk and bread',
-            'status'      => 'todo',
-            'priority'    => 2,
-            'due_date'    => '2026-12-31',
+            'status' => 'todo',
+            'priority' => 2,
+            'due_date' => '2026-12-31',
         ]);
 
         $this->assertSame(201, $res['status']);
@@ -176,7 +176,7 @@ class TaskTest extends TestCase
     public function test_create_task_uses_token_user_id_not_body(): void
     {
         $res = $this->post('/api/v1/tasks', [
-            'title'   => 'Hack attempt',
+            'title' => 'Hack attempt',
             'user_id' => 9999,
         ]);
 
@@ -208,7 +208,7 @@ class TaskTest extends TestCase
     public function test_create_task_with_invalid_status(): void
     {
         $res = $this->post('/api/v1/tasks', [
-            'title'  => 'Test',
+            'title' => 'Test',
             'status' => 'invalid_status',
         ]);
 
@@ -219,7 +219,7 @@ class TaskTest extends TestCase
     public function test_create_task_with_invalid_priority(): void
     {
         $res = $this->post('/api/v1/tasks', [
-            'title'    => 'Test',
+            'title' => 'Test',
             'priority' => 5,
         ]);
 
@@ -230,7 +230,7 @@ class TaskTest extends TestCase
     public function test_create_task_rejects_past_due_date(): void
     {
         $res = $this->post('/api/v1/tasks', [
-            'title'    => 'Test',
+            'title' => 'Test',
             'due_date' => '2020-01-01',
         ]);
 
@@ -257,11 +257,11 @@ class TaskTest extends TestCase
     public function test_view_returns_correct_fields(): void
     {
         $task = $this->createTask([
-            'title'       => 'Full task',
+            'title' => 'Full task',
             'description' => 'Details',
-            'status'      => 'in_progress',
-            'priority'    => 3,
-            'due_date'    => '2026-12-01',
+            'status' => 'in_progress',
+            'priority' => 3,
+            'due_date' => '2026-12-01',
         ]);
 
         $res = $this->get('/api/v1/tasks/' . $task['id']);
@@ -307,7 +307,7 @@ class TaskTest extends TestCase
         $task = $this->createTask(['title' => 'Old title']);
 
         $res = $this->put('/api/v1/tasks/' . $task['id'], [
-            'title'  => 'New title',
+            'title' => 'New title',
             'status' => 'in_progress',
         ]);
 
@@ -322,7 +322,7 @@ class TaskTest extends TestCase
         $task = $this->createTask(['title' => 'Test']);
 
         $res = $this->put('/api/v1/tasks/' . $task['id'], [
-            'title'   => 'Test',
+            'title' => 'Test',
             'user_id' => 9999,
         ]);
 

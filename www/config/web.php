@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+
 $cacheDriver = $_ENV['CACHE_DRIVER'] ?? 'file';
 
 $cacheComponent = $cacheDriver === 'redis'

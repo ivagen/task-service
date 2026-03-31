@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace tests;
 
@@ -8,7 +8,7 @@ use yii\web\Application;
 abstract class TestCase extends \PHPUnit\Framework\TestCase
 {
     protected const TOKEN = 'test-token-abc123';
-    protected const USER  = ['id' => 1, 'name' => 'Test User', 'email' => 'test@example.com'];
+    protected const USER = ['id' => 1, 'name' => 'Test User', 'email' => 'test@example.com'];
 
     protected function setUp(): void
     {
@@ -85,18 +85,18 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     {
         // Parse URL so query string goes into $_GET and path into REQUEST_URI
         $parts = parse_url($url);
-        $path  = $parts['path'] ?? '/';
+        $path = $parts['path'] ?? '/';
         $query = isset($parts['query']) ? '?' . $parts['query'] : '';
 
-        $_GET                          = [];
-        $_SERVER['REQUEST_METHOD']     = strtoupper($method);
-        $_SERVER['REQUEST_URI']        = $path . $query;
-        $_SERVER['SCRIPT_NAME']        = '/index.php';
-        $_SERVER['SCRIPT_FILENAME']    = '/var/www/web/index.php';
-        $_SERVER['PHP_SELF']           = '/index.php';
-        $_SERVER['SERVER_NAME']        = 'localhost';
-        $_SERVER['SERVER_PORT']        = '80';
-        $_SERVER['HTTP_HOST']          = 'localhost';
+        $_GET = [];
+        $_SERVER['REQUEST_METHOD'] = strtoupper($method);
+        $_SERVER['REQUEST_URI'] = $path . $query;
+        $_SERVER['SCRIPT_NAME'] = '/index.php';
+        $_SERVER['SCRIPT_FILENAME'] = '/var/www/web/index.php';
+        $_SERVER['PHP_SELF'] = '/index.php';
+        $_SERVER['SERVER_NAME'] = 'localhost';
+        $_SERVER['SERVER_PORT'] = '80';
+        $_SERVER['HTTP_HOST'] = 'localhost';
         $_SERVER['HTTP_AUTHORIZATION'] = $auth ? 'Bearer ' . self::TOKEN : '';
 
         if (!empty($parts['query'])) {
@@ -105,9 +105,9 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 
         // Re-register request so it picks up fresh $_SERVER
         Yii::$app->set('request', [
-            'class'                  => MockRequest::class,
+            'class' => MockRequest::class,
             'enableCookieValidation' => false,
-            'enableCsrfValidation'   => false,
+            'enableCsrfValidation' => false,
             'parsers' => [
                 'application/json' => 'yii\web\JsonParser',
             ],
@@ -118,7 +118,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 
         // Re-register response to get a clean instance
         Yii::$app->set('response', [
-            'class'  => 'yii\web\Response',
+            'class' => 'yii\web\Response',
             'format' => \yii\web\Response::FORMAT_JSON,
         ]);
 
@@ -134,11 +134,12 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
             ob_end_clean();
         } catch (\yii\web\HttpException $e) {
             ob_end_clean();
+
             return [
                 'status' => $e->statusCode,
-                'body'   => [
+                'body' => [
                     'success' => false,
-                    'error'   => ['code' => $e->statusCode, 'message' => $e->getMessage()],
+                    'error' => ['code' => $e->statusCode, 'message' => $e->getMessage()],
                 ],
             ];
         } catch (\Throwable $e) {
@@ -148,7 +149,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 
         return [
             'status' => $response->statusCode,
-            'body'   => $response->data ?? [],
+            'body' => $response->data ?? [],
         ];
     }
 
@@ -159,14 +160,14 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     protected function createTask(array $attrs = []): array
     {
         $defaults = [
-            'user_id'     => self::USER['id'],
-            'title'       => 'Test task',
+            'user_id' => self::USER['id'],
+            'title' => 'Test task',
             'description' => null,
-            'status'      => 'todo',
-            'priority'    => 1,
-            'due_date'    => null,
-            'created_at'  => time(),
-            'updated_at'  => time(),
+            'status' => 'todo',
+            'priority' => 1,
+            'due_date' => null,
+            'created_at' => time(),
+            'updated_at' => time(),
         ];
 
         $data = array_merge($defaults, $attrs);

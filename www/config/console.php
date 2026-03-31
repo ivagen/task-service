@@ -1,4 +1,5 @@
-<?php
+<?php declare(strict_types=1);
+
 return [
     'id' => 'task-service-console',
     'basePath' => dirname(__DIR__),

@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\components;
 
@@ -13,10 +13,10 @@ class User implements IdentityInterface
 
     public function __construct(array $data)
     {
-        $this->data  = $data;
-        $this->id    = (int)($data['id'] ?? 0);
+        $this->data = $data;
+        $this->id = (int)($data['id'] ?? 0);
         $this->email = $data['email'] ?? '';
-        $this->name  = $data['name'] ?? '';
+        $this->name = $data['name'] ?? '';
     }
 
     public static function findIdentity($id): ?static

@@ -1,15 +1,15 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace app\controllers;
 
-use app\behaviors\PassportAuthBehavior;
-use app\models\Task;
-use app\models\TaskSearch;
 use Yii;
+use app\models\Task;
+use yii\web\Response;
 use yii\web\Controller;
+use app\models\TaskSearch;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
-use yii\web\Response;
+use app\behaviors\PassportAuthBehavior;
 
 class TaskController extends Controller
 {
@@ -37,7 +37,7 @@ class TaskController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $userId = Yii::$app->user->identity->getId();
-        $body   = Yii::$app->request->getBodyParams();
+        $body = Yii::$app->request->getBodyParams();
 
         $task = new Task();
         $task->setScenario('create');
@@ -46,13 +46,15 @@ class TaskController extends Controller
 
         if (!$task->save()) {
             Yii::$app->response->statusCode = 422;
+
             return [
                 'success' => false,
-                'error'   => ['code' => 422, 'message' => $task->errors],
+                'error' => ['code' => 422, 'message' => $task->errors],
             ];
         }
 
         Yii::$app->response->statusCode = 201;
+
         return ['success' => true, 'data' => $task->toArray()];
     }
 
@@ -77,9 +79,10 @@ class TaskController extends Controller
 
         if (!$task->save()) {
             Yii::$app->response->statusCode = 422;
+
             return [
                 'success' => false,
-                'error'   => ['code' => 422, 'message' => $task->errors],
+                'error' => ['code' => 422, 'message' => $task->errors],
             ];
         }
 
