@@ -6,12 +6,19 @@
 # ---------------------------------------------------------------------------
 FROM php:8.5.8-fpm-bookworm@sha256:83c155135b9c4aa664fc6ce47020a10fe53576a0ed3468119cf2efec22fd16b9 AS base
 
+# The pinned PHP base contains linux-libc-dev; requesting it explicitly upgrades
+# that build header to the latest security-fixed Debian revision.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libfcgi-bin \
+    libpng16-16 \
+    libonig5 \
+    libxml2 \
+    libzip4 \
+    linux-libc-dev \
     git \
     curl \
     zip \
     unzip \
-    libfcgi-bin \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
@@ -19,6 +26,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
     && pecl install redis \
     && docker-php-ext-enable redis \
+    && apt-get purge -y --auto-remove \
+        git \
+        curl \
+        zip \
+        unzip \
+        libpng-dev \
+        libonig-dev \
+        libxml2-dev \
+        libzip-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2.10.2@sha256:5946476338742b200bb9ff88f8be56275ddae4b3949c72305cb0dbf10cfcb760 /usr/bin/composer /usr/bin/composer
