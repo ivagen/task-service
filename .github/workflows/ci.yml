@@ -179,7 +179,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan image for known vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        # v0.36.0; pin the immutable commit instead of a mutable tag.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           image-ref: task-service:ci
           format: table
