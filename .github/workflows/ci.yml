@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch cancels the previous, still-running check.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  quality:
+    name: Lint, static analysis & unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: www
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, bcmath, gd, zip, pdo_sqlite, pdo_mysql, intl
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ env.PHP_VERSION }}-${{ hashFiles('www/composer.lock') }}
+          restore-keys: composer-${{ env.PHP_VERSION }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: PHP syntax check
+        run: |
+          find . -name '*.php' -not -path './vendor/*' -print0 \
+            | xargs -0 -n1 -P4 php -l > /dev/null
+
+      - name: Code style (PHP CS Fixer)
+        run: composer cs:check
+
+      - name: Static analysis (PHPStan)
+        run: composer analyse
+
+      # Fails if line coverage drops below the threshold in composer.json,
+      # and also if the coverage driver is missing (empty report).
+      - name: Unit & feature tests with coverage gate (SQLite)
+        run: composer test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-clover
+          path: www/build/clover.xml
+          if-no-files-found: warn
+
+      - name: Security advisories
+        run: composer audit
+
+  integration:
+    name: Integration tests (MySQL 8 + Redis)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: www
+    # Same backing services as production, so ENUM/strict-mode/collation
+    # differences and the atomic Redis rate limiter are all exercised for real.
+    services:
+      mysql:
+        image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: task_service_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -uroot -proot --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+          --health-start-period=30s
+      redis:
+        image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+    env:
+      TEST_DB_DSN: mysql:host=127.0.0.1;port=3306;dbname=task_service_test
+      TEST_DB_USER: root
+      TEST_DB_PASSWORD: root
+      TEST_REDIS_HOST: 127.0.0.1
+      TEST_REDIS_PORT: 6379
+      # Dedicated database; flushed before every test.
+      TEST_REDIS_DB: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, bcmath, gd, zip, pdo_sqlite, pdo_mysql, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Runs the real migrations against MySQL and replays the whole suite
+      # there, so ENUM, strict mode and collation differences surface here
+      # rather than in production.
+      - name: Run every suite against MySQL and Redis
+        run: composer test:integration
+
+      # A misconfigured service would otherwise let the suite skip itself and
+      # still report success.
+      - name: Assert the integration suites actually ran
+        run: |
+          vendor/bin/phpunit --testsuite Integration --do-not-cache-result \
+            | tee /tmp/integration.txt
+          if grep -qi 'skipped' /tmp/integration.txt; then
+            echo "::error::Integration tests were skipped - MySQL/Redis not reachable"
+            exit 1
+          fi
+
+  openapi:
+    name: OpenAPI description
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Lint OpenAPI description
+        run: npx --yes @redocly/cli@2 lint
+
+      # Drift between the description and the routes is caught by
+      # tests/Feature/OpenApiSpecTest.php in the `quality` job.
+      - name: Build documentation bundle
+        run: npx --yes @redocly/cli@2 bundle docs/openapi.yaml -o /tmp/openapi.bundle.yaml
+
+  docker:
+    name: Docker build & image scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: prod
+          push: false
+          load: true
+          tags: task-service:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image for known vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: task-service:ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

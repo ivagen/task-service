@@ -1,11 +1,9 @@
 <?php declare(strict_types=1);
 
-defined('YII_DEBUG') or define('YII_DEBUG', (bool)($_ENV['YII_DEBUG'] ?? false));
-defined('YII_ENV') or define('YII_ENV', $_ENV['YII_ENV'] ?? 'prod');
-
+// Order matters: autoload -> .env + YII_* constants -> Yii -> config.
 require __DIR__ . '/../vendor/autoload.php';
-require __DIR__ . '/../vendor/yiisoft/yii2/Yii.php';
 require __DIR__ . '/../config/bootstrap.php';
+require __DIR__ . '/../vendor/yiisoft/yii2/Yii.php';
 
 $config = require __DIR__ . '/../config/web.php';
 

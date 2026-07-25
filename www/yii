@@ -1,17 +1,18 @@
 #!/usr/bin/env php
-<?php
+<?php declare(strict_types=1);
+
 /**
  * Yii console bootstrap file.
+ *
+ * Uses the same load order as web/index.php so console and web agree on
+ * YII_DEBUG, YII_ENV and every value coming from .env.
  */
 
-defined('YII_DEBUG') or define('YII_DEBUG', true);
-defined('YII_ENV') or define('YII_ENV', 'dev');
-
 require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/config/bootstrap.php';
 require __DIR__ . '/vendor/yiisoft/yii2/Yii.php';
 
 $config = require __DIR__ . '/config/console.php';
 
 $application = new yii\console\Application($config);
-$exitCode = $application->run();
-exit($exitCode);
+exit($application->run());

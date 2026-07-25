@@ -7,7 +7,9 @@ use yii\base\Behavior;
 use yii\web\Controller;
 use app\components\User;
 use yii\base\ActionEvent;
-use app\components\PassportAuth;
+use app\components\RequestId;
+use app\components\RateLimitResult;
+use app\components\AuthServiceUnavailableException;
 
 class PassportAuthBehavior extends Behavior
 {
@@ -21,19 +23,27 @@ class PassportAuthBehavior extends Behavior
     public function beforeAction(ActionEvent $event): void
     {
         $request = Yii::$app->request;
-        $token = $this->extractToken($request->getHeaders()->get('Authorization', ''));
+        $token = $this->extractToken((string)$request->getHeaders()->get('Authorization', ''));
 
         if ($token === null) {
-            $this->respondUnauthorized('Missing or invalid Authorization header');
+            $this->respond(401, 'Missing or invalid Authorization header');
             $event->isValid = false;
 
             return;
         }
 
-        $userData = PassportAuth::validate($token);
+        try {
+            $userData = Yii::$app->passportAuth->validate($token);
+        } catch (AuthServiceUnavailableException) {
+            // Already logged with detail by PassportAuth.
+            $this->respond(503, 'Auth service is temporarily unavailable', ['Retry-After' => '5']);
+            $event->isValid = false;
 
-        if ($userData === false) {
-            $this->respondUnauthorized('Invalid or expired token');
+            return;
+        }
+
+        if ($userData === null) {
+            $this->respond(401, 'Invalid or expired token');
             $event->isValid = false;
 
             return;
@@ -42,11 +52,12 @@ class PassportAuthBehavior extends Behavior
         $identity = new User($userData);
         Yii::$app->user->setIdentity($identity);
 
-        if (!$this->checkRateLimit($identity->id)) {
-            $this->respondTooManyRequests();
-            $event->isValid = false;
+        $rateLimit = Yii::$app->rateLimiter->hit((string)$identity->getId());
+        $this->applyRateLimitHeaders($rateLimit);
 
-            return;
+        if (!$rateLimit->allowed) {
+            $this->respond(429, 'Too Many Requests', ['Retry-After' => (string)$rateLimit->retryAfter]);
+            $event->isValid = false;
         }
     }
 
@@ -61,44 +72,30 @@ class PassportAuthBehavior extends Behavior
         return null;
     }
 
-    private function checkRateLimit(int $userId): bool
+    private function applyRateLimitHeaders(RateLimitResult $result): void
     {
-        $cacheKey = 'rate_limit_' . $userId;
-        $count = (int)Yii::$app->cache->get($cacheKey);
-
-        if ($count === 0) {
-            Yii::$app->cache->set($cacheKey, 1, 60);
-
-            return true;
-        }
-
-        if ($count >= 60) {
-            return false;
-        }
-
-        Yii::$app->cache->set($cacheKey, $count + 1, 60);
-
-        return true;
+        $headers = Yii::$app->response->headers;
+        $headers->set('X-RateLimit-Limit', (string)$result->limit);
+        $headers->set('X-RateLimit-Remaining', (string)$result->remaining);
     }
 
-    private function respondUnauthorized(string $message): void
+    private function respond(int $statusCode, string $message, array $headers = []): void
     {
         $response = Yii::$app->response;
-        $response->statusCode = 401;
-        $response->data = [
-            'success' => false,
-            'error' => ['code' => 401, 'message' => $message],
-        ];
-        $response->send();
-    }
+        $response->statusCode = $statusCode;
 
-    private function respondTooManyRequests(): void
-    {
-        $response = Yii::$app->response;
-        $response->statusCode = 429;
+        foreach ($headers as $name => $value) {
+            $response->headers->set($name, $value);
+        }
+
+        $response->headers->set(RequestId::HEADER, RequestId::get());
         $response->data = [
             'success' => false,
-            'error' => ['code' => 429, 'message' => 'Too Many Requests'],
+            'error' => [
+                'code' => $statusCode,
+                'message' => $message,
+                'request_id' => RequestId::get(),
+            ],
         ];
         $response->send();
     }

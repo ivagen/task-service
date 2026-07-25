@@ -1,0 +1,18 @@
+# Opt-in overlay: join the auth-service's Docker network so the task-service
+# can reach it by container name instead of via host.docker.internal.
+#
+#   AUTH_SERVICE_URL=http://auth_service_nginx:8000
+#   AUTH_NETWORK=<network created by the auth-service compose project>
+#
+#   docker network ls                       # find the name
+#   make up COMPOSE_FILES="-f docker-compose.yml -f docker-compose.auth-network.yml"
+services:
+  app:
+    networks:
+      - task-service
+      - auth-service
+
+networks:
+  auth-service:
+    external: true
+    name: ${AUTH_NETWORK:-auth_service_default}

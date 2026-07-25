@@ -1,0 +1,656 @@
+openapi: 3.0.3
+
+info:
+  title: Task Service API
+  version: 1.0.0
+  description: |
+    REST API для управління завданнями. Кожен користувач бачить і змінює
+    виключно власні завдання.
+
+    ## Авторизація
+
+    Усі `/api/v1/tasks*` запити вимагають заголовок
+    `Authorization: Bearer <token>`. Токен валідується через auth-service
+    (Laravel Passport) і кешується на `AUTH_CACHE_TTL` секунд (за
+    замовчуванням 60). Відкликаний токен залишається дійсним для цього
+    сервісу до кінця TTL.
+
+    Якщо auth-service недоступний, API повертає `503`, а не `401` — щоб
+    аварія залежності не виглядала як невалідний токен. Перед цим виконується
+    обмежена кількість повторів, але лише для збоїв, які гарантовано не мали
+    ефекту (помилка з'єднання, `502/503/504`), і лише в межах спільного
+    бюджету часу — тому `503` не приходить пізніше за `AUTH_TOTAL_TIMEOUT`.
+
+    ## Обмеження швидкості
+
+    60 запитів на користувача за 60 секунд (фіксоване вікно). Кожна
+    відповідь містить `X-RateLimit-Limit` і `X-RateLimit-Remaining`,
+    відповідь `429` додатково — `Retry-After`.
+
+    ## Кореляція запитів
+
+    Кожна відповідь містить `X-Request-Id`; те саме значення дублюється в
+    тілі помилки як `error.request_id` і в логах сервера. Клієнт може
+    надіслати власний `X-Request-Id` (до 128 символів `A-Za-z0-9._-`).
+
+servers:
+  - url: http://localhost:8002
+    description: Локальна розробка
+
+tags:
+  - name: Tasks
+    description: CRUD над завданнями
+  - name: Health
+    description: Проби для оркестратора (без авторизації)
+
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      tags: [Health]
+      summary: Liveness probe
+      description: Повертає 200, поки процес живий. Авторизація не потрібна.
+      security: []
+      responses:
+        '200':
+          description: Сервіс живий
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+
+  /api/v1/ready:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      summary: Readiness probe
+      description: |
+        Перевіряє критичні залежності (БД, кеш). Причина збою навмисно не
+        розкривається в тілі — вона пишеться в лог, бо endpoint публічний.
+      security: []
+      responses:
+        '200':
+          description: Усі залежності доступні
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Принаймні одна залежність недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+  /api/v1/tasks:
+    get:
+      operationId: listTasks
+      tags: [Tasks]
+      summary: Список завдань поточного користувача
+      description: |
+        Завжди сортується `created_at DESC, id DESC`. Детермінований порядок
+        гарантує, що сторінки не дублюють і не пропускають записи.
+
+        Невідомі query-параметри ігноруються.
+      parameters:
+        - name: status
+          in: query
+          description: Фільтр за статусом
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+        - name: priority
+          in: query
+          description: Фільтр за пріоритетом
+          schema:
+            $ref: '#/components/schemas/TaskPriority'
+        - name: due_date_from
+          in: query
+          description: Нижня межа `due_date` (включно). Не може бути пізніше за `due_date_to`.
+          schema:
+            type: string
+            format: date
+          example: '2026-04-01'
+        - name: due_date_to
+          in: query
+          description: Верхня межа `due_date` (включно)
+          schema:
+            type: string
+            format: date
+          example: '2026-04-30'
+        - name: search
+          in: query
+          description: Підрядок у `title` або `description` (регістронезалежно)
+          schema:
+            type: string
+            maxLength: 255
+        - name: page
+          in: query
+          description: Номер сторінки, починаючи з 1
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: |
+            Розмір сторінки. Значення понад 100 **обрізається** до 100 (не
+            помилка); нечислові або менші за 1 дають `422`.
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+      responses:
+        '200':
+          description: Сторінка завдань
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data, meta]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+    post:
+      operationId: createTask
+      tags: [Tasks]
+      summary: Створити завдання
+      description: |
+        `user_id` завжди береться з токена — значення в тілі ігнорується.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+      responses:
+        '201':
+          description: Завдання створено
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/tasks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Ідентифікатор завдання
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+
+    get:
+      operationId: getTask
+      tags: [Tasks]
+      summary: Отримати завдання за ID
+      responses:
+        '200':
+          description: Завдання
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+    put:
+      operationId: updateTask
+      tags: [Tasks]
+      summary: Оновити завдання
+      description: |
+        Часткове оновлення: передаються лише ті поля, які треба змінити.
+        `user_id` змінити неможливо.
+
+        `due_date` перевіряється на «сьогодні або пізніше» лише тоді, коли
+        клієнт явно надіслав це поле. Завдання, чия дата вже минула,
+        залишається редагованим (наприклад, щоб проставити `status`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdateRequest'
+      responses:
+        '200':
+          description: Завдання оновлено
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+    delete:
+      operationId: deleteTask
+      tags: [Tasks]
+      summary: Видалити завдання
+      responses:
+        '204':
+          description: Завдання видалено; тіло порожнє
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Laravel Passport access token, що валідується через auth-service.
+
+  headers:
+    XRequestId:
+      description: Кореляційний ID запиту; дублюється в логах.
+      schema:
+        type: string
+      example: 6f1c0f6e6b6d4f0a9c1e2d3b4a5f6071
+    XRateLimitLimit:
+      description: Ліміт запитів у поточному вікні.
+      schema:
+        type: integer
+      example: 60
+    XRateLimitRemaining:
+      description: Скільки запитів лишилося у поточному вікні.
+      schema:
+        type: integer
+      example: 59
+    RetryAfter:
+      description: Через скільки секунд можна повторити запит.
+      schema:
+        type: integer
+      example: 42
+
+  schemas:
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, done]
+      default: todo
+
+    TaskPriority:
+      type: integer
+      enum: [1, 2, 3]
+      default: 1
+      description: '1 — низький, 2 — середній, 3 — високий'
+
+    Task:
+      type: object
+      required:
+        - id
+        - user_id
+        - title
+        - description
+        - status
+        - priority
+        - due_date
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          description: Власник завдання; береться з токена.
+          example: 5
+        title:
+          type: string
+          maxLength: 255
+          example: Купити молоко
+        description:
+          type: string
+          nullable: true
+          example: 2 літри
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-04-15'
+        created_at:
+          type: integer
+          format: int64
+          description: Unix timestamp
+          example: 1743379200
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix timestamp
+          example: 1743379200
+
+    TaskCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Купити молоко
+        description:
+          type: string
+          nullable: true
+          example: 2 літри
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          description: Має бути сьогоднішньою або майбутньою датою.
+          example: '2026-04-15'
+
+    TaskUpdateRequest:
+      type: object
+      description: Усі поля необов'язкові; надсилаються лише ті, що змінюються.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+
+    TaskResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Task'
+
+    PaginationMeta:
+      type: object
+      required: [total, page, per_page, total_pages]
+      properties:
+        total:
+          type: integer
+          description: Загальна кількість завдань після застосування фільтрів.
+          example: 50
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+        total_pages:
+          type: integer
+          example: 3
+
+    ReadinessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          required: [status, checks]
+          properties:
+            status:
+              type: string
+              enum: [ready, not_ready]
+            checks:
+              type: object
+              additionalProperties:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+
+    Error:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: integer
+              example: 404
+            message:
+              type: string
+              example: Task not found.
+            request_id:
+              type: string
+              example: 6f1c0f6e6b6d4f0a9c1e2d3b4a5f6071
+
+    ValidationError:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: integer
+              example: 422
+            message:
+              type: object
+              description: Мапа «атрибут → список повідомлень».
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+              example:
+                due_date:
+                  - due_date must be today or in the future.
+            request_id:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: Відсутній, некоректний або протермінований токен
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missingHeader:
+              summary: Немає заголовка Authorization
+              value:
+                success: false
+                error:
+                  code: 401
+                  message: Missing or invalid Authorization header
+                  request_id: 6f1c0f6e6b6d4f0a9c1e2d3b4a5f6071
+            invalidToken:
+              summary: Auth-service відхилив токен
+              value:
+                success: false
+                error:
+                  code: 401
+                  message: Invalid or expired token
+                  request_id: 6f1c0f6e6b6d4f0a9c1e2d3b4a5f6071
+
+    NotFound:
+      description: |
+        Завдання не існує **або** належить іншому користувачу. Обидва випадки
+        свідомо нерозрізненні, щоб не можна було визначити наявність чужих ID.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationFailed:
+      description: Помилка валідації тіла запиту або query-параметрів
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    TooManyRequests:
+      description: Перевищено ліміт запитів
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: |
+        Внутрішня помилка. Клієнт отримує лише загальне повідомлення; повний
+        стек пишеться в лог із тим самим `request_id`. Деталі потрапляють у
+        відповідь тільки при `YII_DEBUG=true`.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: 500
+              message: Internal Server Error
+              request_id: 6f1c0f6e6b6d4f0a9c1e2d3b4a5f6071
+
+    ServiceUnavailable:
+      description: Auth-service або інша критична залежність недоступна
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-Request-Id:
+          $ref: '#/components/headers/XRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: 503
+              message: Auth service is temporarily unavailable
+              request_id: 6f1c0f6e6b6d4f0a9c1e2d3b4a5f6071
+
+security:
+  - bearerAuth: []

@@ -1,0 +1,24 @@
+apis:
+  task-service:
+    root: docs/openapi.yaml
+
+rules:
+  # Recommended ruleset, minus three rules that do not fit this project.
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-summary: error
+  no-unresolved-refs: error
+  no-unused-components: error
+  path-params-defined: error
+  security-defined: error
+
+  # The only documented server is the local dev stack; deployment URLs are
+  # environment-specific and injected by the consumer.
+  no-server-example.com: off
+  no-empty-servers: off
+
+  # The liveness probe genuinely has no 4xx outcome.
+  operation-4xx-response: off
+
+  # Internal service; no license header in the repository.
+  info-license: off

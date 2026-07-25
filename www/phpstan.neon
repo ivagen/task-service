@@ -1,0 +1,22 @@
+parameters:
+    level: 5
+    paths:
+        - behaviors
+        - components
+        - config
+        - controllers
+        - migrations
+        - models
+        - tests
+    bootstrapFiles:
+        - tests/bootstrap.php
+    # These vary per deployment; PHPStan must not fold them into a literal.
+    dynamicConstantNames:
+        - YII_DEBUG
+        - YII_ENV
+    ignoreErrors:
+        # Custom application components are resolved through Application::__get();
+        # PHPStan cannot see them without the (unmaintained) Yii 2 extension.
+        # Listed by name so a typo in any other component is still reported.
+        -
+            message: '#undefined property .*Application.*::\$(passportAuth|rateLimiter|redis|accessLogger)#'

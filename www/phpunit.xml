@@ -3,10 +3,24 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="tests/bootstrap.php"
          colors="true"
-         stopOnFailure="false">
+         stopOnFailure="false"
+         failOnRisky="true"
+         failOnWarning="true">
     <testsuites>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!-- Skips itself unless TEST_DB_DSN points at MySQL. -->
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory>behaviors</directory>
+            <directory>components</directory>
+            <directory>controllers</directory>
+            <directory>models</directory>
+        </include>
+    </source>
 </phpunit>
