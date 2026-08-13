@@ -1,44 +1,44 @@
 # Task Service
 
-Yii2 REST мікросервіс для управління завданнями. Авторизація через Laravel Passport.
+Yii2 REST microservice for task management. Authorization via Laravel Passport.
 
-## Вимоги
+## Requirements
 
-- Docker та Docker Compose
-- Запущений auth_service (Laravel Passport) на порту 8000
+- Docker and Docker Compose
+- A running auth_service (Laravel Passport) on port 8000
 
-## Конфігурація
+## Configuration
 
-Є два `.env` файли з різними ролями:
+There are two `.env` files with different roles:
 
-| Файл | Хто читає | Коли потрібен |
-|------|-----------|---------------|
-| `.env` (корінь) | Docker Compose — і для `${...}`, і для передачі змінних у контейнер `app` | завжди при запуску через Docker |
-| `www/.env` | Dotenv усередині PHP | тільки для запуску **без** Docker |
+| File | Who reads it | When it's needed |
+|------|--------------|------------------|
+| `.env` (root) | Docker Compose — both for `${...}` and for passing variables into the `app` container | always when running via Docker |
+| `www/.env` | Dotenv inside PHP | only for running **without** Docker |
 
-Під Docker єдиним джерелом істини є кореневий `.env`. Реальні змінні оточення
-завжди мають пріоритет над `www/.env`, тому дублювати їх не треба.
+Under Docker the single source of truth is the root `.env`. Real environment
+variables always take priority over `www/.env`, so there is no need to duplicate them.
 
-Змінні застосунку читаються через `app\components\Env`, який дивиться в
-`$_ENV`, `$_SERVER` і `getenv()` — тому і `.env`-файл, і `environment:` у
-Compose працюють однаково.
+Application variables are read through `app\components\Env`, which looks at
+`$_ENV`, `$_SERVER` and `getenv()` — so both the `.env` file and `environment:` in
+Compose work the same way.
 
-## Налаштування
+## Setup
 
-### 1. Клонуй репозиторій та перейди в директорію
+### 1. Clone the repository and enter the directory
 
 ```bash
 git clone <repo-url> task-service
 cd task-service
 ```
 
-### 2. Створи .env файл
+### 2. Create the .env file
 
 ```bash
-make env        # копіює .env.example → .env
+make env        # copies .env.example → .env
 ```
 
-Ключові значення описані в `.env.example`. Мінімум, що варто перевірити:
+Key values are described in `.env.example`. At minimum, check these:
 
 ```
 DB_NAME=task_service
@@ -48,32 +48,32 @@ CACHE_DRIVER=redis
 AUTH_SERVICE_URL=http://host.docker.internal:8000
 ```
 
-### 3. Перший запуск (одна команда)
+### 3. First run (a single command)
 
 ```bash
 make bootstrap
 ```
 
-Виконує: build образу, запуск контейнерів (з очікуванням healthcheck-ів
-MySQL і Redis), `composer install` та міграції. `sudo` не потрібен —
-`vendor/` і `runtime/` живуть у named volumes.
+Performs: image build, container startup (waiting for the MySQL and Redis
+healthchecks), `composer install` and migrations. `sudo` is not required —
+`vendor/` and `runtime/` live in named volumes.
 
-### 4. Сервіс доступний на http://localhost:8002
+### 4. The service is available at http://localhost:8002
 
-Перевірка: `curl http://localhost:8002/api/v1/health`
+Check: `curl http://localhost:8002/api/v1/health`
 
-### Зв'язок з auth-service
+### Connecting to auth-service
 
-За замовчуванням task-service ходить до auth-service через
-`host.docker.internal` (працює і на Docker Desktop, і на Linux завдяки
+By default task-service reaches auth-service through
+`host.docker.internal` (works on both Docker Desktop and Linux thanks to
 `extra_hosts: host-gateway`).
 
-Якщо auth-service теж у Docker, краще підключити обидва сервіси до спільної
-мережі:
+If auth-service also runs in Docker, it is better to attach both services to a
+shared network:
 
 ```bash
-docker network ls                     # знайти мережу auth-service
-# у .env:
+docker network ls                     # find the auth-service network
+# in .env:
 #   AUTH_NETWORK=auth_service_default
 #   AUTH_SERVICE_URL=http://auth_service_nginx:8000
 
@@ -82,10 +82,10 @@ make up COMPOSE_FILES="-f docker-compose.yml -f docker-compose.auth-network.yml"
 
 ### Production
 
-`docker-compose.yml` — це development-конфігурація (bind mount коду, dev-залежності).
-Для production використовується окремий файл, який не монтує вихідний код і
-збирає образ зі стадії `prod` (`composer install --no-dev`, автозавантаження
-`--classmap-authoritative`, php-fpm від `www-data`):
+`docker-compose.yml` is the development configuration (bind-mounted code, dev
+dependencies). Production uses a separate file that does not mount the source
+code and builds the image from the `prod` stage (`composer install --no-dev`,
+`--classmap-authoritative` autoloading, php-fpm running as `www-data`):
 
 ```bash
 make prod-build
@@ -93,94 +93,94 @@ make prod-build
 
 ---
 
-## Make команди
+## Make commands
 
-| Команда | Опис |
-|---------|------|
-| `make bootstrap` | Перший запуск: build + `composer install` + міграції |
-| `make build` | Rebuild Docker образу і запуск контейнерів |
-| `make up` | Запустити контейнери |
-| `make down` | Зупинити контейнери |
-| `make restart` | Перезапустити контейнери |
-| `make ps` | Статус контейнерів |
-| `make migrate` | Виконати міграції (`php yii migrate`) |
-| `make test` | PHPUnit (Feature, SQLite) у контейнері |
-| `make test-integration` | PHPUnit проти MySQL і Redis зі стеку |
-| `make coverage` | PHPUnit із порогом покриття |
+| Command | Description |
+|---------|-------------|
+| `make bootstrap` | First run: build + `composer install` + migrations |
+| `make build` | Rebuild the Docker image and start containers |
+| `make up` | Start containers |
+| `make down` | Stop containers |
+| `make restart` | Restart containers |
+| `make ps` | Container status |
+| `make migrate` | Run migrations (`php yii migrate`) |
+| `make test` | PHPUnit (Feature, SQLite) inside the container |
+| `make test-integration` | PHPUnit against the stack's MySQL and Redis |
+| `make coverage` | PHPUnit with the coverage threshold |
 | `make analyse` | PHPStan |
-| `make openapi` | Валідація `docs/openapi.yaml` |
+| `make openapi` | Validate `docs/openapi.yaml` |
 | `make cs-check` / `make cs-fix` | PHP CS Fixer |
-| `make shell` | Відкрити bash в контейнері app |
-| `make logs` | Стрімити логи всіх контейнерів |
-| `make env` | Створити кореневий `.env` з `.env.example` |
-| `make prod-build` | Зібрати й запустити production-конфігурацію |
+| `make shell` | Open bash in the app container |
+| `make logs` | Stream logs from all containers |
+| `make env` | Create the root `.env` from `.env.example` |
+| `make prod-build` | Build and start the production configuration |
 
 ---
 
 ## Health checks
 
-| Endpoint | Опис |
-|----------|------|
-| `GET /api/v1/health` | liveness — процес живий, авторизація не потрібна |
-| `GET /api/v1/ready` | readiness — перевіряє БД і кеш, `503` якщо щось недоступне |
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/health` | liveness — the process is alive, no authorization required |
+| `GET /api/v1/ready` | readiness — checks the DB and cache, `503` if something is unavailable |
 
 ---
 
 ## API Endpoints
 
-Всі запити вимагають заголовок `Authorization: Bearer <token>`.
+All requests require the `Authorization: Bearer <token>` header.
 
-### Отримати список завдань
+### Get the task list
 
 ```bash
 curl -X GET "http://localhost:8002/api/v1/tasks" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-З фільтрами:
+With filters:
 
 ```bash
 curl -X GET "http://localhost:8002/api/v1/tasks?status=todo&priority=2&page=1&per_page=10" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-Пошук:
+Search:
 
 ```bash
-curl -X GET "http://localhost:8002/api/v1/tasks?search=купити" \
+curl -X GET "http://localhost:8002/api/v1/tasks?search=buy" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-З діапазоном дат:
+With a date range:
 
 ```bash
 curl -X GET "http://localhost:8002/api/v1/tasks?due_date_from=2026-04-01&due_date_to=2026-04-30" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-### Створити завдання
+### Create a task
 
 ```bash
 curl -X POST "http://localhost:8002/api/v1/tasks" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Купити молоко",
-    "description": "2 літри",
+    "title": "Buy milk",
+    "description": "2 liters",
     "status": "todo",
     "priority": 1,
     "due_date": "2026-04-15"
   }'
 ```
 
-### Отримати завдання за ID
+### Get a task by ID
 
 ```bash
 curl -X GET "http://localhost:8002/api/v1/tasks/1" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-### Оновити завдання
+### Update a task
 
 ```bash
 curl -X PUT "http://localhost:8002/api/v1/tasks/1" \
@@ -192,128 +192,128 @@ curl -X PUT "http://localhost:8002/api/v1/tasks/1" \
   }'
 ```
 
-### Видалити завдання
+### Delete a task
 
 ```bash
 curl -X DELETE "http://localhost:8002/api/v1/tasks/1" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-Повертає `204 No Content` з порожнім тілом.
+Returns `204 No Content` with an empty body.
 
 ---
 
-## Параметри списку
+## List parameters
 
-| Параметр | Значення | Некоректне значення |
-|----------|----------|---------------------|
+| Parameter | Values | Invalid value |
+|-----------|--------|---------------|
 | `status` | `todo`, `in_progress`, `done` | `422` |
 | `priority` | `1`, `2`, `3` | `422` |
-| `due_date_from`, `due_date_to` | `Y-m-d`; `from` не може бути пізніше за `to` | `422` |
-| `search` | до 255 символів, шукає в `title` і `description` | `422` |
-| `page` | ціле ≥ 1 (за замовчуванням `1`) | `422` |
-| `per_page` | ціле ≥ 1 (за замовчуванням `20`); значення понад `100` **обрізається** до `100` | `422` лише для нечислових або `< 1` |
+| `due_date_from`, `due_date_to` | `Y-m-d`; `from` cannot be later than `to` | `422` |
+| `search` | up to 255 characters, searches in `title` and `description` | `422` |
+| `page` | integer ≥ 1 (default `1`) | `422` |
+| `per_page` | integer ≥ 1 (default `20`); values above `100` are **capped** at `100` | `422` only for non-numeric or `< 1` |
 
-Список завжди сортується `created_at DESC, id DESC` — детермінований порядок,
-без якого сторінки могли б дублювати або пропускати записи.
+The list is always sorted by `created_at DESC, id DESC` — a deterministic order,
+without which pages could duplicate or skip records.
 
-Невідомі query-параметри ігноруються.
-
----
-
-## Обмеження швидкості
-
-`60` запитів на користувача за `60` секунд (налаштовується через `RATE_LIMIT`
-і `RATE_LIMIT_WINDOW`). Вікно фіксоване: TTL встановлюється лише першим
-запитом у вікні, тому активний клієнт не блокує сам себе нескінченно.
-
-Кожна відповідь містить `X-RateLimit-Limit` і `X-RateLimit-Remaining`;
-відповідь `429` додатково містить `Retry-After` у секундах.
-
-З `CACHE_DRIVER=redis` лічильник інкрементується атомарно (`INCR`). З
-файловим кешем атомарності немає — це прийнятно лише для локальної розробки.
+Unknown query parameters are ignored.
 
 ---
 
-## Кешування токенів
+## Rate limiting
 
-Валідований Passport-токен кешується на `AUTH_CACHE_TTL` секунд (за
-замовчуванням `60`). Це означає, що **відкликаний токен залишається дійсним
-для task-service до кінця цього TTL** — свідомий компроміс між latency та
-консистентністю. Зменш `AUTH_CACHE_TTL` або встанови `0`, щоб відкликання
-діяло миттєво (ціною запиту до auth-service на кожен виклик API).
+`60` requests per user per `60` seconds (configurable via `RATE_LIMIT`
+and `RATE_LIMIT_WINDOW`). The window is fixed: the TTL is set only by the first
+request in the window, so an active client does not block itself indefinitely.
 
-Якщо auth-service недоступний (мережева помилка, timeout, `5xx`), API
-повертає `503`, а не `401` — щоб клієнт не сприйняв аварію як невалідний
-токен.
+Every response includes `X-RateLimit-Limit` and `X-RateLimit-Remaining`;
+a `429` response additionally includes `Retry-After` in seconds.
 
-### Повтори (retry)
-
-Повторюються **лише** ті збої, які гарантовано не мали ефекту на боці
-auth-service: помилка встановлення з'єднання і `502/503/504`.
-
-Не повторюються ніколи:
-
-- `401` — це остаточна відповідь, повтор лише витратить бюджет
-- `500` — не є ознакою тимчасовості
-- read timeout — спроба вже з'їла більшу частину бюджету, і немає гарантії,
-  що запит не дійшов
-
-| Змінна | За замовчуванням | Що робить |
-|--------|------------------|-----------|
-| `AUTH_RETRIES` | `1` | додаткові спроби після першої; `0` вимикає |
-| `AUTH_RETRY_DELAY_MS` | `100` | пауза між спробами |
-| `AUTH_TOTAL_TIMEOUT` | `5` | **жорсткий стелаж на всю перевірку разом із повторами** |
-
-`AUTH_TOTAL_TIMEOUT` — це те, що обмежує найгірший випадок. Перевірка токена
-стоїть у критичному шляху кожного запиту, тому повтор виконується лише якщо
-встигає в залишок бюджету; інакше сервіс одразу віддає `503`.
+With `CACHE_DRIVER=redis` the counter is incremented atomically (`INCR`). With
+the file cache there is no atomicity — acceptable only for local development.
 
 ---
 
-## Логи
+## Token caching
 
-Один JSON-об'єкт на рядок, у **stderr** — php-fpm надсилає stdout воркерів у
-`/dev/null`, а stderr доходить до `docker logs` і до централізованого
-збирача.
+A validated Passport token is cached for `AUTH_CACHE_TTL` seconds (default
+`60`). This means that **a revoked token stays valid for task-service until
+that TTL expires** — a deliberate trade-off between latency and
+consistency. Lower `AUTH_CACHE_TTL` or set it to `0` to make revocation take
+effect immediately (at the cost of a request to auth-service on every API call).
+
+If auth-service is unavailable (network error, timeout, `5xx`), the API
+returns `503` rather than `401` — so the client does not mistake an outage for an
+invalid token.
+
+### Retries
+
+Only failures that provably had no effect on the auth-service side are
+retried: connection setup errors and `502/503/504`.
+
+Never retried:
+
+- `401` — a final answer; retrying would only burn the budget
+- `500` — not a sign of a transient problem
+- read timeout — the attempt has already consumed most of the budget, and there
+  is no guarantee that the request did not arrive
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `AUTH_RETRIES` | `1` | extra attempts after the first; `0` disables them |
+| `AUTH_RETRY_DELAY_MS` | `100` | pause between attempts |
+| `AUTH_TOTAL_TIMEOUT` | `5` | **hard ceiling for the entire check including retries** |
+
+`AUTH_TOTAL_TIMEOUT` is what bounds the worst case. Token validation sits on the
+critical path of every request, so a retry runs only if it fits in the
+remaining budget; otherwise the service returns `503` right away.
+
+---
+
+## Logs
+
+One JSON object per line, on **stderr** — php-fpm sends worker stdout to
+`/dev/null`, while stderr reaches `docker logs` and the centralized
+collector.
 
 ```json
 {"timestamp":"2026-07-25T13:55:23.544Z","level":"error","service":"task-service","category":"access","event":"request","method":"GET","path":"/api/v1/tasks","status":503,"duration_ms":253,"request_id":"28416a16…"}
 ```
 
-Кожен запит дає рядок `category=access` з методом, шляхом, статусом і
-тривалістю; `5xx` пишеться на рівні `error`, щоб потрапляти в алерти.
-Проби `/api/v1/health` і `/api/v1/ready` виключені, інакше вони заглушили б
-решту.
+Every request produces a `category=access` line with the method, path, status and
+duration; `5xx` is written at the `error` level so it reaches alerting.
+The `/api/v1/health` and `/api/v1/ready` probes are excluded, otherwise they
+would drown out everything else.
 
-Виклики auth-service логуються окремо (`category=passport`) із кількістю
-спроб і тривалістю:
+Calls to auth-service are logged separately (`category=passport`) with the number
+of attempts and the duration:
 
 ```json
 {"level":"error","category":"passport","event":"auth_service_call","outcome":"unavailable","attempts":2,"duration_ms":226,"request_id":"28416a16…"}
 ```
 
-`request_id` спільний для всіх рядків одного запиту **і** для тіла помилки,
-яке отримав клієнт — тобто за ID зі скарги користувача знаходиться повна
-картина.
+The `request_id` is shared by all lines of a single request **and** by the error
+body the client received — so an ID from a user complaint leads to the full
+picture.
 
-Логи навмисно **не** дамплять `$GLOBALS`: стандартна поведінка
-`yii\log\Target` включає `$_SERVER`, а там у контейнері лежать `DB_PASSWORD`
-та інші секрети.
+The logs deliberately do **not** dump `$GLOBALS`: the default behavior of
+`yii\log\Target` includes `$_SERVER`, which inside the container holds `DB_PASSWORD`
+and other secrets.
 
 ---
 
-## Формат відповідей
+## Response format
 
-**Успішна відповідь (одне завдання):**
+**Successful response (a single task):**
 ```json
 {
   "success": true,
   "data": {
     "id": 1,
     "user_id": 5,
-    "title": "Купити молоко",
-    "description": "2 літри",
+    "title": "Buy milk",
+    "description": "2 liters",
     "status": "todo",
     "priority": 1,
     "due_date": "2026-04-15",
@@ -323,7 +323,7 @@ auth-service: помилка встановлення з'єднання і `502/
 }
 ```
 
-**Список:**
+**List:**
 ```json
 {
   "success": true,
@@ -337,7 +337,7 @@ auth-service: помилка встановлення з'єднання і `502/
 }
 ```
 
-**Помилка:**
+**Error:**
 ```json
 {
   "success": false,
@@ -349,67 +349,67 @@ auth-service: помилка встановлення з'єднання і `502/
 }
 ```
 
-`request_id` дублюється в заголовку `X-Request-Id` і в логах. Якщо клієнт
-надішле власний `X-Request-Id`, він буде використаний для наскрізної
-кореляції.
+The `request_id` is duplicated in the `X-Request-Id` header and in the logs. If a
+client sends its own `X-Request-Id`, it is used for end-to-end
+correlation.
 
-### Коди помилок
+### Error codes
 
-| Код | Коли |
-|-----|------|
-| `401` | немає токена або токен невалідний |
-| `404` | завдання не існує **або** належить іншому користувачу |
-| `422` | помилка валідації тіла запиту чи query-параметрів |
-| `429` | перевищено ліміт запитів |
-| `500` | внутрішня помилка |
-| `503` | auth-service або залежність недоступні |
+| Code | When |
+|------|------|
+| `401` | no token or the token is invalid |
+| `404` | the task does not exist **or** belongs to another user |
+| `422` | validation error in the request body or query parameters |
+| `429` | request limit exceeded |
+| `500` | internal error |
+| `503` | auth-service or a dependency is unavailable |
 
-Чуже завдання свідомо повертає `404`, а не `403`: інакше по коду відповіді
-можна було б визначити, який ID існує в чужого користувача.
+Another user's task deliberately returns `404` rather than `403`: otherwise the
+response code would reveal which IDs exist for another user.
 
-Для `500` клієнт отримує лише `Internal Server Error`. Повний стек
-пишеться в лог із тим самим `request_id`; деталі потрапляють у відповідь
-тільки при `YII_DEBUG=true`.
+For `500` the client only receives `Internal Server Error`. The full stack trace
+is written to the log with the same `request_id`; details make it into the
+response only when `YII_DEBUG=true`.
 
 ---
 
-## API-документація
+## API documentation
 
-Формальна специфікація — `docs/openapi.yaml` (OpenAPI 3.0.3): усі endpoint-и,
-схеми запитів і відповідей, `bearerAuth`, коди `401/404/422/429/500/503`,
-правила pagination та filtering.
+The formal specification is `docs/openapi.yaml` (OpenAPI 3.0.3): all endpoints,
+request and response schemas, `bearerAuth`, the `401/404/422/429/500/503` codes,
+pagination and filtering rules.
 
 ```bash
-npx @redocly/cli lint              # валідація (конфіг у redocly.yaml)
-npx @redocly/cli preview-docs      # інтерактивний перегляд
+npx @redocly/cli lint              # validation (config in redocly.yaml)
+npx @redocly/cli preview-docs      # interactive preview
 ```
 
-Специфікація не може «протухнути» непомітно:
-`www/tests/Feature/OpenApiSpecTest.php` звіряє її з реальними маршрутами
-`urlManager`, з полями відповіді, enum-ами моделі та значеннями за
-замовчуванням. Розбіжність валить тести.
+The spec cannot go stale unnoticed:
+`www/tests/Feature/OpenApiSpecTest.php` checks it against the real `urlManager`
+routes, response fields, model enums and default
+values. A mismatch fails the tests.
 
 ---
 
-## Тести
+## Tests
 
 ```bash
-make test                      # у контейнері (SQLite)
-cd www && composer test        # локально, тільки Feature
+make test                      # in the container (SQLite)
+cd www && composer test        # locally, Feature only
 cd www && composer analyse     # PHPStan level 5
 ```
 
-Два рівні:
+Two levels:
 
-| Suite | Залежності | Коли |
-|-------|-----------|------|
-| `Feature` | SQLite in-memory | завжди; швидко |
-| `Integration` | MySQL 8 + Redis | вимагає `TEST_DB_DSN` / `TEST_REDIS_HOST`, інакше скіпається |
+| Suite | Dependencies | When |
+|-------|--------------|------|
+| `Feature` | SQLite in-memory | always; fast |
+| `Integration` | MySQL 8 + Redis | requires `TEST_DB_DSN` / `TEST_REDIS_HOST`, otherwise skipped |
 
-Integration-рівень прогонює **реальні міграції** і ловить те, чого SQLite не
-відтворює: `ENUM`, strict mode, `utf8mb4` collation, фактичні індекси — а з
-Redis перевіряє атомарний `INCR` та поведінку TTL, яку fallback на кеші
-покрити не може.
+The integration level runs the **real migrations** and catches what SQLite does
+not reproduce: `ENUM`, strict mode, `utf8mb4` collation, actual indexes — and with
+Redis it verifies the atomic `INCR` and the TTL behavior that the cache fallback
+cannot cover.
 
 ```bash
 cd www
@@ -419,36 +419,36 @@ TEST_REDIS_HOST=127.0.0.1 TEST_REDIS_PORT=6380 TEST_REDIS_DB=15 \
 composer test:integration
 ```
 
-`TEST_REDIS_DB` використовується окремо від робочої бази і чиститься
-`FLUSHDB` перед кожним тестом.
+`TEST_REDIS_DB` is kept separate from the working database and is cleared with
+`FLUSHDB` before every test.
 
-### Поріг покриття
+### Coverage threshold
 
 ```bash
-cd www && composer test:coverage    # потрібен pcov або xdebug
+cd www && composer test:coverage    # requires pcov or xdebug
 ```
 
-Мінімум — **85%** рядків, заданий один раз у `composer.json`
-(`test:coverage`); CI викликає той самий скрипт. Поточне значення — близько
-91%. `tests/coverage-check.php` падає і тоді, коли драйвер покриття взагалі
-відсутній, щоб порожній звіт не проходив як успіх.
+The minimum is **85%** of lines, defined once in `composer.json`
+(`test:coverage`); CI calls the same script. The current value is around
+91%. `tests/coverage-check.php` also fails when the coverage driver is
+missing entirely, so that an empty report does not pass as success.
 
 ---
 
 ## CI
 
-`.github/workflows/ci.yml` — чотири задачі:
+`.github/workflows/ci.yml` — four jobs:
 
-| Задача | Що робить |
-|--------|-----------|
-| `quality` | `composer validate`, install, syntax check, PHP CS Fixer, PHPStan, PHPUnit із порогом покриття (SQLite), `composer audit` |
-| `integration` | піднімає MySQL 8 і Redis, прогонює всі suite-и проти них і перевіряє, що вони **не** скіпнулись |
+| Job | What it does |
+|-----|--------------|
+| `quality` | `composer validate`, install, syntax check, PHP CS Fixer, PHPStan, PHPUnit with the coverage threshold (SQLite), `composer audit` |
+| `integration` | brings up MySQL 8 and Redis, runs all suites against them and verifies they were **not** skipped |
 | `openapi` | `redocly lint` + bundle |
-| `docker` | збирає production-образ і сканує його Trivy (HIGH/CRITICAL) |
+| `docker` | builds the production image and scans it with Trivy (HIGH/CRITICAL) |
 
 ---
 
-## Зупинити сервіс
+## Stop the service
 
 ```bash
 make down
