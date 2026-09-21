@@ -24,6 +24,7 @@ $components = [
     'cache' => require __DIR__ . '/cache.php',
     'passportAuth' => [
         'class' => 'app\components\PassportAuth',
+        'userPath' => Env::get('AUTH_USER_PATH', 'api/v1/user'),
         'timeout' => (float)Env::getInt('AUTH_TIMEOUT', 3),
         'connectTimeout' => (float)Env::getInt('AUTH_CONNECT_TIMEOUT', 2),
         'cacheDuration' => Env::getInt('AUTH_CACHE_TTL', 60),

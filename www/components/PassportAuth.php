@@ -21,6 +21,13 @@ use GuzzleHttp\Exception\ConnectException;
 class PassportAuth extends Component
 {
     public string $baseUrl = '';
+
+    /**
+     * Path of the token lookup, relative to `baseUrl`. The auth service exposes
+     * its whole API under a version prefix, so the endpoint is /api/v1/user.
+     */
+    public string $userPath = 'api/v1/user';
+
     public float $timeout = 3.0;
     public float $connectTimeout = 2.0;
     public int $cacheDuration = 60;
@@ -95,9 +102,9 @@ class PassportAuth extends Component
             return null;
         }
 
-        $data = json_decode((string)$response->getBody(), true);
+        $data = $this->extractUser(json_decode((string)$response->getBody(), true));
 
-        if (!is_array($data) || !isset($data['id'])) {
+        if ($data === null) {
             Yii::warning('Auth service returned an unexpected payload', 'passport');
 
             return null;
@@ -108,6 +115,26 @@ class PassportAuth extends Component
         }
 
         return $data;
+    }
+
+    /**
+     * The auth service wraps its resources in a `data` envelope, so the user
+     * sits one level down. A flat body is accepted too, so neither shape of
+     * response breaks validation.
+     *
+     * @return array<string, mixed>|null the user payload, or null when absent
+     */
+    private function extractUser(mixed $body): ?array
+    {
+        if (!is_array($body)) {
+            return null;
+        }
+
+        if (isset($body['data']) && is_array($body['data'])) {
+            $body = $body['data'];
+        }
+
+        return isset($body['id']) ? $body : null;
     }
 
     /** Upstream failures worth a second attempt — the request had no effect. */
@@ -157,7 +184,7 @@ class PassportAuth extends Component
 
     private function send(string $token): ResponseInterface
     {
-        return $this->getClient()->request('GET', 'api/user', [
+        return $this->getClient()->request('GET', $this->userPath, [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token,
                 'Accept' => 'application/json',
@@ -192,7 +219,7 @@ class PassportAuth extends Component
         Yii::info([
             'event' => 'auth_service_call',
             'method' => 'GET',
-            'path' => '/api/user',
+            'path' => $this->logPath(),
             'status' => $status,
             'attempts' => $attempts,
             'duration_ms' => $this->elapsedMs($startedAt),
@@ -204,12 +231,18 @@ class PassportAuth extends Component
         Yii::error([
             'event' => 'auth_service_call',
             'method' => 'GET',
-            'path' => '/api/user',
+            'path' => $this->logPath(),
             'outcome' => 'unavailable',
             'reason' => $reason,
             'attempts' => $attempts,
             'duration_ms' => $this->elapsedMs($startedAt),
         ], 'passport');
+    }
+
+    /** Keeps the logged path honest: it is the one that was actually requested. */
+    private function logPath(): string
+    {
+        return '/' . ltrim($this->userPath, '/');
     }
 
     private function elapsedMs(float $startedAt): int
